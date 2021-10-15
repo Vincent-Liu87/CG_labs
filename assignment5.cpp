@@ -113,7 +113,7 @@ edaf80::Assignment5::run()
 
 	bool use_normal_mapping = false;
 	auto camera_position = mCamera.mWorld.GetTranslation();
-	auto player_position = camera_position+ mCamera.mWorld.GetFront() * 0.01f+glm::vec3(0.0f, -0.002f, 0.0f);
+	auto ship_position = camera_position+ mCamera.mWorld.GetFront() * 0.015f+glm::vec3(0.0f, -0.003f, 0.0f);
 	auto ambient = glm::vec3(0.1f, 0.1f, 0.1f);
 	auto diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
 	auto specular = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -138,7 +138,7 @@ edaf80::Assignment5::run()
 		return;
 	}
 
-	auto torus_shape = parametric_shapes::createTorus(10, 7, 5, 10);
+	auto torus_shape = parametric_shapes::createTorus(3, 1, 5, 10);
 	if (torus_shape.vao == 0u)
 	{
 		LogError("Failed to retrive mesh for torus");
@@ -152,7 +152,7 @@ edaf80::Assignment5::run()
 		return;
 	}
 
-	Node paper_plane;
+	Node ship;
 	auto const& plane_front = paper_plane_shape.front();
 
 	Node skybox;
@@ -172,14 +172,14 @@ edaf80::Assignment5::run()
 	skybox.set_program(&Skybox_shader, set_uniforms);
 	skybox.add_texture("skybox_cube_map", skybox_cubemap_id, GL_TEXTURE_CUBE_MAP);
 
-	paper_plane.set_geometry(plane_front);
-	paper_plane.set_program(&fallback_shader, set_uniforms);
+	ship.set_geometry(parametric_shapes::createSphere(0.0005f, 10u, 10u));
+	ship.set_program(&fallback_shader, set_uniforms);
 
 	test_sphere.set_geometry(parametric_shapes::createSphere(0.0005f, 10u, 10u));
 	test_sphere.set_program(&fallback_shader, set_uniforms);
 
 	std::array<glm::vec3, 9> control_point_locations = {
-	  glm::vec3(0.0f,  0.0f,  0.0f),
+	  glm::vec3(4.0f, 0.0f,  -6.0f),
 	  glm::vec3(1.0f,  1.8f,  1.0f),
 	  glm::vec3(2.0f,  1.2f,  2.0f),
 	  glm::vec3(3.0f,  3.0f,  3.0f),
@@ -190,11 +190,12 @@ edaf80::Assignment5::run()
 	  glm::vec3(-1.0f, -1.8f, -1.0f)
 	};
 
-	for (int i = 0; i < 9; i++)
+	for (int i = 0; i < 1; i++)
 	{
 		Tori[i].set_geometry(torus_shape);
 		Tori[i].set_program(&fallback_shader, phong_set_uniforms);
 		Tori[i].get_transform().SetTranslate(control_point_locations[i]);
+		
 	}
 
 	auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
@@ -236,11 +237,24 @@ edaf80::Assignment5::run()
 		glfwPollEvents();
 		inputHandler.Advance();
 		mCamera.Update(deltaTimeUs, inputHandler);
-		mCamera.mWorld.Translate(mCamera.mWorld.GetFront()*0.03f);
-		camera_position = mCamera.mWorld.GetTranslation();
-		player_position = camera_position+mCamera.mWorld.GetFront() * 0.015f + glm::vec3(0.0f, -0.003f, 0.0f);
+		ship.get_transform().Translate(ship.get_transform().GetFront()*0.03f);
+		ship_position = ship.get_transform().GetTranslation();
+		//mCamera.mWorld.SetTranslate(ship.get_transform().GetTranslation());
+		camera_position = ship_position+ship.get_transform().GetFront() * (-0.015f);
 
-		std::cout << glm::distance(camera_position, player_position)<<std::endl;
+		mCamera.mWorld.SetTranslate(camera_position);
+		/*mCamera.mRotation.x = -ship.get_transform().GetFront().x;
+		mCamera.mRotation.y = ship.get_transform().GetFront().y;
+		mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
+		mCamera.mWorld.RotateY(mCamera.mRotation.x);*/
+
+		mCamera.mWorld.LookTowards(ship_position);
+
+		/*std::cout <<"ship"<< ship.get_transform().GetFront() << std::endl;
+		std::cout <<"camera"<< mCamera.mWorld.GetFront() << std::endl;
+		std::cout << "ship_pos" << ship.get_transform().GetTranslation() << std::endl;
+		std::cout << "camera_pos" << mCamera.mWorld.GetTranslation() << std::endl;*/
+		//std::cout << glm::distance(camera_position, ship_position)<<std::endl;
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
 			shader_reload_failed = !program_manager.ReloadAllPrograms();
@@ -273,28 +287,21 @@ edaf80::Assignment5::run()
 
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_UP) & PRESSED) {
-			mCamera.mRotation.y += 0.005;
-			mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
-			mCamera.mWorld.RotateY(mCamera.mRotation.x);
+			ship.get_transform().RotateX(0.005);
+
 		}
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_DOWN) & PRESSED) {
-			mCamera.mRotation.y -= 0.005;
-			mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
-			mCamera.mWorld.RotateY(mCamera.mRotation.x);
+			ship.get_transform().RotateX(-0.005);
 
 		}
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_LEFT) & PRESSED) {
-			mCamera.mRotation.x += 0.005;
-			mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
-			mCamera.mWorld.RotateY(mCamera.mRotation.x);
+			ship.get_transform().RotateY(0.005);
 		}
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_RIGHT) & PRESSED) {
-			mCamera.mRotation.x -= 0.005;
-			mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
-			mCamera.mWorld.RotateY(mCamera.mRotation.x);
+			ship.get_transform().RotateY(-0.005);
 		}
 
 
@@ -311,10 +318,12 @@ edaf80::Assignment5::run()
 		{
 			Tori[i].render(mCamera.GetWorldToClipMatrix());
 		}
-		paper_plane.render(mCamera.GetWorldToClipMatrix());
 
-		test_sphere.get_transform().SetTranslate(player_position);
-		test_sphere.render(mCamera.GetWorldToClipMatrix());
+		ship.get_transform().SetTranslate(ship_position);
+		ship.render(mCamera.GetWorldToClipMatrix());
+
+		//test_sphere.get_transform().SetTranslate(ship_position);
+		//test_sphere.render(mCamera.GetWorldToClipMatrix());
 
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
