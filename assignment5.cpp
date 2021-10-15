@@ -238,7 +238,9 @@ edaf80::Assignment5::run()
 		mCamera.Update(deltaTimeUs, inputHandler);
 		mCamera.mWorld.Translate(mCamera.mWorld.GetFront()*0.03f);
 		camera_position = mCamera.mWorld.GetTranslation();
-		player_position = camera_position+mCamera.mWorld.GetFront() * 0.01f + glm::vec3(0.0f, -0.002f, 0.0f);
+		player_position = camera_position+mCamera.mWorld.GetFront() * 0.015f + glm::vec3(0.0f, -0.003f, 0.0f);
+
+		std::cout << glm::distance(camera_position, player_position)<<std::endl;
 
 		if (inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
 			shader_reload_failed = !program_manager.ReloadAllPrograms();
