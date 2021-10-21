@@ -229,136 +229,160 @@ edaf80::Assignment5::run()
 	float basis_thickness_scale = 1.0f;
 	float basis_length_scale = 1.0f;
 
+	bool game_over = false;
+
 	changeCullMode(cull_mode);
 
 	while (!glfwWindowShouldClose(window)) {
-		auto const nowTime = std::chrono::high_resolution_clock::now();
-		auto const deltaTimeUs = std::chrono::duration_cast<std::chrono::microseconds>(nowTime - lastTime);
-		lastTime = nowTime;
+		while (!game_over) {
+			auto const nowTime = std::chrono::high_resolution_clock::now();
+			auto const deltaTimeUs = std::chrono::duration_cast<std::chrono::microseconds>(nowTime - lastTime);
+			lastTime = nowTime;
 
-		auto& io = ImGui::GetIO();
-		inputHandler.SetUICapture(io.WantCaptureMouse, io.WantCaptureKeyboard);
+			auto& io = ImGui::GetIO();
+			inputHandler.SetUICapture(io.WantCaptureMouse, io.WantCaptureKeyboard);
 
-		glfwPollEvents();
-		inputHandler.Advance();
-		mCamera.Update(deltaTimeUs, inputHandler);
-		ship.get_transform().Translate(ship.get_transform().GetFront() * 0.05f);
-		ship_position = ship.get_transform().GetTranslation();
-		camera_position = ship_position + ship.get_transform().GetFront() * (-0.015f);
+			glfwPollEvents();
+			inputHandler.Advance();
+			mCamera.Update(deltaTimeUs, inputHandler);
+			ship.get_transform().Translate(ship.get_transform().GetFront() * 0.05f);
+			ship_position = ship.get_transform().GetTranslation();
+			camera_position = ship_position + ship.get_transform().GetFront() * (-0.015f);
 
-		mCamera.mWorld.SetTranslate(camera_position);
-		/*mCamera.mRotation.x = -ship.get_transform().GetFront().x;
-		mCamera.mRotation.y = ship.get_transform().GetFront().y;
-		mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
-		mCamera.mWorld.RotateY(mCamera.mRotation.x);*/
+			//collision
 
-		mCamera.mWorld.LookTowards(ship_position);
-
-		/*std::cout <<"ship"<< ship.get_transform().GetFront() << std::endl;
-		std::cout <<"camera"<< mCamera.mWorld.GetFront() << std::endl;
-		std::cout << "ship_pos" << ship.get_transform().GetTranslation() << std::endl;
-		std::cout << "camera_pos" << mCamera.mWorld.GetTranslation() << std::endl;*/
-		//std::cout << glm::distance(camera_position, ship_position)<<std::endl;
-
-		if (inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
-			shader_reload_failed = !program_manager.ReloadAllPrograms();
-			if (shader_reload_failed)
-				tinyfd_notifyPopup("Shader Program Reload Error",
-					"An error occurred while reloading shader programs; see the logs for details.\n"
-					"Rendering is suspended until the issue is solved. Once fixed, just reload the shaders again.",
-					"error");
-		}
-		if (inputHandler.GetKeycodeState(GLFW_KEY_F3) & JUST_RELEASED)
-			show_logs = !show_logs;
-		if (inputHandler.GetKeycodeState(GLFW_KEY_F2) & JUST_RELEASED)
-			show_gui = !show_gui;
-		if (inputHandler.GetKeycodeState(GLFW_KEY_F11) & JUST_RELEASED)
-			mWindowManager.ToggleFullscreenStatusForWindow(window);
-
-
-		int framebuffer_width, framebuffer_height;
-		glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
-		glViewport(0, 0, framebuffer_width, framebuffer_height);
-
-
-
-
-		if (inputHandler.GetKeycodeState(GLFW_KEY_UP) & PRESSED) {
-			ship.get_transform().RotateX(0.005);
-
-		}
-
-		if (inputHandler.GetKeycodeState(GLFW_KEY_DOWN) & PRESSED) {
-			ship.get_transform().RotateX(-0.005);
-
-		}
-
-		if (inputHandler.GetKeycodeState(GLFW_KEY_LEFT) & PRESSED) {
-			ship.get_transform().RotateY(0.005);
-		}
-
-		if (inputHandler.GetKeycodeState(GLFW_KEY_RIGHT) & PRESSED) {
-			ship.get_transform().RotateY(-0.005);
-		}
-
-
-
-		mWindowManager.NewImGuiFrame();
-
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-		bonobo::changePolygonMode(polygon_mode);
-
-		skybox.get_transform().SetTranslate(camera_position);
-		skybox.render(mCamera.GetWorldToClipMatrix());
-		for (int i = 0; i < 9; i++)
-		{
-			Tori[i].render(mCamera.GetWorldToClipMatrix());
-		}
-
-		ship.get_transform().SetTranslate(ship_position);
-		ship.render(mCamera.GetWorldToClipMatrix());
-
-
-
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-		bool opened = ImGui::Begin("Scene Control", nullptr, ImGuiWindowFlags_None);
-		if (opened) {
-			auto const cull_mode_changed = bonobo::uiSelectCullMode("Cull mode", cull_mode);
-			if (cull_mode_changed) {
-				changeCullMode(cull_mode);
+			for (int i = 0; i < 9; i++)
+			{
+				//std::cout << "ship" << ship_position << std::endl;
+				//std::cout << "torus" << control_point_locations[i] << std::endl;
+				if (abs(ship_position.z - control_point_locations[i].z) < 0.1f) {
+					//std::cout << "ship" << ship_position << std::endl;
+					//std::cout << "torus" << control_point_locations[i] << std::endl;
+					if (abs(ship_position.x - control_point_locations[i].x) >= 1 || abs(ship_position.y - control_point_locations[i].y) >= 1) {
+						//game over
+						game_over = true;
+						std::cout << "Game over" << std::endl;
+					}
+				}
 			}
-			bonobo::uiSelectPolygonMode("Polygon mode", polygon_mode);
-			auto demo_sphere_selection_result = program_manager.SelectProgram("Demo sphere", demo_sphere_program_index);
-			/*ImGui::Separator();
-			ImGui::Checkbox("Use normal mapping", &use_normal_mapping);
-			ImGui::ColorEdit3("Ambient", glm::value_ptr(ambient));
-			ImGui::ColorEdit3("Diffuse", glm::value_ptr(diffuse));
-			ImGui::ColorEdit3("Specular", glm::value_ptr(specular));
-			ImGui::SliderFloat("Shininess", &shininess, 1.0f, 1000.0f);
-			ImGui::SliderFloat3("Light Position", glm::value_ptr(light_position), -20.0f, 20.0f);
-			ImGui::Separator();
-			ImGui::Checkbox("Show basis", &show_basis);
-			ImGui::SliderFloat("Basis thickness scale", &basis_thickness_scale, 0.0f, 100.0f);
-			ImGui::SliderFloat("Basis length scale", &basis_length_scale, 0.0f, 100.0f);*/
+
+			mCamera.mWorld.SetTranslate(camera_position);
+			/*mCamera.mRotation.x = -ship.get_transform().GetFront().x;
+			mCamera.mRotation.y = ship.get_transform().GetFront().y;
+			mCamera.mWorld.SetRotateX(mCamera.mRotation.y);
+			mCamera.mWorld.RotateY(mCamera.mRotation.x);*/
+
+			mCamera.mWorld.LookTowards(ship_position - camera_position);
+
+			//std::cout <<"ship"<< ship.get_transform().GetFront() << std::endl;
+			//std::cout <<"camera"<< mCamera.mWorld.GetFront() << std::endl;
+			//std::cout << "ship" << ship.get_transform().GetTranslation()- mCamera.mWorld.GetTranslation() << std::endl;
+			//std::cout << "ship_pos" << ship.get_transform().GetTranslation() << std::endl;
+			//std::cout << "camera_pos" << mCamera.mWorld.GetTranslation() << std::endl;
+			//std::cout << glm::distance(camera_position, ship_position)<<std::endl;
+
+			if (inputHandler.GetKeycodeState(GLFW_KEY_R) & JUST_PRESSED) {
+				shader_reload_failed = !program_manager.ReloadAllPrograms();
+				if (shader_reload_failed)
+					tinyfd_notifyPopup("Shader Program Reload Error",
+						"An error occurred while reloading shader programs; see the logs for details.\n"
+						"Rendering is suspended until the issue is solved. Once fixed, just reload the shaders again.",
+						"error");
+			}
+			if (inputHandler.GetKeycodeState(GLFW_KEY_F3) & JUST_RELEASED)
+				show_logs = !show_logs;
+			if (inputHandler.GetKeycodeState(GLFW_KEY_F2) & JUST_RELEASED)
+				show_gui = !show_gui;
+			if (inputHandler.GetKeycodeState(GLFW_KEY_F11) & JUST_RELEASED)
+				mWindowManager.ToggleFullscreenStatusForWindow(window);
+
+
+			int framebuffer_width, framebuffer_height;
+			glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+			glViewport(0, 0, framebuffer_width, framebuffer_height);
+
+
+
+
+			if (inputHandler.GetKeycodeState(GLFW_KEY_UP) & PRESSED) {
+				ship.get_transform().RotateX(0.005);
+
+			}
+
+			if (inputHandler.GetKeycodeState(GLFW_KEY_DOWN) & PRESSED) {
+				ship.get_transform().RotateX(-0.005);
+
+			}
+
+			if (inputHandler.GetKeycodeState(GLFW_KEY_LEFT) & PRESSED) {
+				ship.get_transform().RotateY(0.005);
+			}
+
+			if (inputHandler.GetKeycodeState(GLFW_KEY_RIGHT) & PRESSED) {
+				ship.get_transform().RotateY(-0.005);
+			}
+
+
+
+			mWindowManager.NewImGuiFrame();
+
+			glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+			bonobo::changePolygonMode(polygon_mode);
+
+			skybox.get_transform().SetTranslate(camera_position);
+			skybox.render(mCamera.GetWorldToClipMatrix());
+			for (int i = 0; i < 9; i++)
+			{
+				Tori[i].render(mCamera.GetWorldToClipMatrix());
+			}
+
+			ship.get_transform().SetTranslate(ship_position);
+			ship.render(mCamera.GetWorldToClipMatrix());
+
+
+
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+			bool opened = ImGui::Begin("Scene Control", nullptr, ImGuiWindowFlags_None);
+			if (opened) {
+				auto const cull_mode_changed = bonobo::uiSelectCullMode("Cull mode", cull_mode);
+				if (cull_mode_changed) {
+					changeCullMode(cull_mode);
+				}
+				bonobo::uiSelectPolygonMode("Polygon mode", polygon_mode);
+				auto demo_sphere_selection_result = program_manager.SelectProgram("Demo sphere", demo_sphere_program_index);
+				/*ImGui::Separator();
+				ImGui::Checkbox("Use normal mapping", &use_normal_mapping);
+				ImGui::ColorEdit3("Ambient", glm::value_ptr(ambient));
+				ImGui::ColorEdit3("Diffuse", glm::value_ptr(diffuse));
+				ImGui::ColorEdit3("Specular", glm::value_ptr(specular));
+				ImGui::SliderFloat("Shininess", &shininess, 1.0f, 1000.0f);
+				ImGui::SliderFloat3("Light Position", glm::value_ptr(light_position), -20.0f, 20.0f);
+				ImGui::Separator();
+				ImGui::Checkbox("Show basis", &show_basis);
+				ImGui::SliderFloat("Basis thickness scale", &basis_thickness_scale, 0.0f, 100.0f);
+				ImGui::SliderFloat("Basis length scale", &basis_length_scale, 0.0f, 100.0f);*/
+				if (game_over) {
+					ImGui::Text("Game over!!!");
+				}
+			}
+			ImGui::End();
+
+			if (show_basis)
+				bonobo::renderBasis(basis_thickness_scale, basis_length_scale, mCamera.GetWorldToClipMatrix());
+
+			opened = ImGui::Begin("Render Time", nullptr, ImGuiWindowFlags_None);
+			if (opened)
+				ImGui::Text("%.3f ms", std::chrono::duration<float, std::milli>(deltaTimeUs).count());
+			ImGui::End();
+
+			if (show_logs)
+				Log::View::Render();
+			mWindowManager.RenderImGuiFrame(show_gui);
+
+			glfwSwapBuffers(window);
 		}
-		ImGui::End();
-
-		if (show_basis)
-			bonobo::renderBasis(basis_thickness_scale, basis_length_scale, mCamera.GetWorldToClipMatrix());
-
-		opened = ImGui::Begin("Render Time", nullptr, ImGuiWindowFlags_None);
-		if (opened)
-			ImGui::Text("%.3f ms", std::chrono::duration<float, std::milli>(deltaTimeUs).count());
-		ImGui::End();
-
-		if (show_logs)
-			Log::View::Render();
-		mWindowManager.RenderImGuiFrame(show_gui);
-
-		glfwSwapBuffers(window);
 	}
-
 }
 
 int main()
