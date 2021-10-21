@@ -113,7 +113,7 @@ edaf80::Assignment5::run()
 
 	bool use_normal_mapping = false;
 	auto camera_position = mCamera.mWorld.GetTranslation();
-	auto ship_position = camera_position+ mCamera.mWorld.GetFront() * 0.015f+glm::vec3(0.0f, -0.003f, 0.0f);
+	auto ship_position = camera_position + mCamera.mWorld.GetFront() * 0.015f + glm::vec3(0.0f, -0.003f, 0.0f);
 	auto ambient = glm::vec3(0.1f, 0.1f, 0.1f);
 	auto diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
 	auto specular = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -128,6 +128,10 @@ edaf80::Assignment5::run()
 		glUniform1f(glGetUniformLocation(program, "shininess"), shininess);
 	};
 
+	std::string texture_path = config::resources_path("textures/");
+	auto demo_diffuse_texture = bonobo::loadTexture2D(texture_path + "cobblestone_floor_08_diff_2k.jpg");
+	auto demo_specular_map = bonobo::loadTexture2D(texture_path + "cobblestone_floor_08_rough_2k.jpg");
+	auto demo_normal_map = bonobo::loadTexture2D(texture_path + "cobblestone_floor_08_nor_2k.jpg");
 
 	//
 	// Set up the two spheres used.
@@ -138,7 +142,7 @@ edaf80::Assignment5::run()
 		return;
 	}
 
-	auto torus_shape = parametric_shapes::createTorus(3, 1, 5, 10);
+	auto torus_shape = parametric_shapes::createTorus(2, 1, 100, 100);
 	if (torus_shape.vao == 0u)
 	{
 		LogError("Failed to retrive mesh for torus");
@@ -157,7 +161,6 @@ edaf80::Assignment5::run()
 
 	Node skybox;
 	Node Tori[9];
-	Node test_sphere;
 
 
 
@@ -173,29 +176,31 @@ edaf80::Assignment5::run()
 	skybox.add_texture("skybox_cube_map", skybox_cubemap_id, GL_TEXTURE_CUBE_MAP);
 
 	ship.set_geometry(parametric_shapes::createSphere(0.0005f, 10u, 10u));
-	ship.set_program(&fallback_shader, set_uniforms);
-
-	test_sphere.set_geometry(parametric_shapes::createSphere(0.0005f, 10u, 10u));
-	test_sphere.set_program(&fallback_shader, set_uniforms);
+	ship.set_program(&phong_shader, phong_set_uniforms);
+	//ship.get_transform().Scale(0.2f);
+	//ship.set_program(&fallback_shader, set_uniforms);
+	ship.add_texture("diffuse_texture", demo_diffuse_texture, GL_TEXTURE_2D);
+	ship.add_texture("specular_texture", demo_specular_map, GL_TEXTURE_2D);
+	ship.add_texture("normal_map", demo_normal_map, GL_TEXTURE_2D);
 
 	std::array<glm::vec3, 9> control_point_locations = {
-	  glm::vec3(4.0f, 0.0f,  -6.0f),
-	  glm::vec3(1.0f,  1.8f,  1.0f),
-	  glm::vec3(2.0f,  1.2f,  2.0f),
-	  glm::vec3(3.0f,  3.0f,  3.0f),
-	  glm::vec3(3.0f,  0.0f,  3.0f),
-	  glm::vec3(-2.0f, -1.0f,  3.0f),
-	  glm::vec3(-3.0f, -3.0f, -3.0f),
-	  glm::vec3(-2.0f, -1.2f, -2.0f),
-	  glm::vec3(-1.0f, -1.8f, -1.0f)
+	glm::vec3(1.0f,  1.8f,  2.0f),
+	glm::vec3(0.0f,  0.0f,  -12.0f),
+	glm::vec3(1.0f,  1.8f,  -22.0f),
+	glm::vec3(2.0f,  0.0f,  -32.0f),
+	glm::vec3(1.0f,  1.8f,  -42.0f),
+	glm::vec3(-0.5f, 0.0f,  -52.0f),
+	glm::vec3(-3.0f, 1.8f, -62.0f),
+	glm::vec3(-1.0f, 0.0f, -72.0f),
+	glm::vec3(0.0f, 1.8f, -82.0f)
 	};
 
-	for (int i = 0; i < 1; i++)
+	for (int i = 0; i < 9; i++)
 	{
 		Tori[i].set_geometry(torus_shape);
-		Tori[i].set_program(&fallback_shader, phong_set_uniforms);
+		Tori[i].set_program(&normal_shader, set_uniforms);
 		Tori[i].get_transform().SetTranslate(control_point_locations[i]);
-		
+		Tori[i].get_transform().RotateX(glm::half_pi<float>());
 	}
 
 	auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
@@ -237,10 +242,9 @@ edaf80::Assignment5::run()
 		glfwPollEvents();
 		inputHandler.Advance();
 		mCamera.Update(deltaTimeUs, inputHandler);
-		ship.get_transform().Translate(ship.get_transform().GetFront()*0.03f);
+		ship.get_transform().Translate(ship.get_transform().GetFront() * 0.05f);
 		ship_position = ship.get_transform().GetTranslation();
-		//mCamera.mWorld.SetTranslate(ship.get_transform().GetTranslation());
-		camera_position = ship_position+ship.get_transform().GetFront() * (-0.015f);
+		camera_position = ship_position + ship.get_transform().GetFront() * (-0.015f);
 
 		mCamera.mWorld.SetTranslate(camera_position);
 		/*mCamera.mRotation.x = -ship.get_transform().GetFront().x;
@@ -272,13 +276,6 @@ edaf80::Assignment5::run()
 			mWindowManager.ToggleFullscreenStatusForWindow(window);
 
 
-		// Retrieve the actual framebuffer size: for HiDPI monitors,
-		// you might end up with a framebuffer larger than what you
-		// actually asked for. For example, if you ask for a 1920x1080
-		// framebuffer, you might get a 3840x2160 one instead.
-		// Also it might change as the user drags the window between
-		// monitors with different DPIs, or if the fullscreen status is
-		// being toggled.
 		int framebuffer_width, framebuffer_height;
 		glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
 		glViewport(0, 0, framebuffer_width, framebuffer_height);
@@ -313,7 +310,6 @@ edaf80::Assignment5::run()
 
 		skybox.get_transform().SetTranslate(camera_position);
 		skybox.render(mCamera.GetWorldToClipMatrix());
-		//demo_sphere.render(mCamera.GetWorldToClipMatrix());
 		for (int i = 0; i < 9; i++)
 		{
 			Tori[i].render(mCamera.GetWorldToClipMatrix());
@@ -322,8 +318,6 @@ edaf80::Assignment5::run()
 		ship.get_transform().SetTranslate(ship_position);
 		ship.render(mCamera.GetWorldToClipMatrix());
 
-		//test_sphere.get_transform().SetTranslate(ship_position);
-		//test_sphere.render(mCamera.GetWorldToClipMatrix());
 
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -336,10 +330,7 @@ edaf80::Assignment5::run()
 			}
 			bonobo::uiSelectPolygonMode("Polygon mode", polygon_mode);
 			auto demo_sphere_selection_result = program_manager.SelectProgram("Demo sphere", demo_sphere_program_index);
-			/*if (demo_sphere_selection_result.was_selection_changed) {
-			  demo_sphere.set_program(demo_sphere_selection_result.program, phong_set_uniforms);
-			}*/
-			ImGui::Separator();
+			/*ImGui::Separator();
 			ImGui::Checkbox("Use normal mapping", &use_normal_mapping);
 			ImGui::ColorEdit3("Ambient", glm::value_ptr(ambient));
 			ImGui::ColorEdit3("Diffuse", glm::value_ptr(diffuse));
@@ -349,7 +340,7 @@ edaf80::Assignment5::run()
 			ImGui::Separator();
 			ImGui::Checkbox("Show basis", &show_basis);
 			ImGui::SliderFloat("Basis thickness scale", &basis_thickness_scale, 0.0f, 100.0f);
-			ImGui::SliderFloat("Basis length scale", &basis_length_scale, 0.0f, 100.0f);
+			ImGui::SliderFloat("Basis length scale", &basis_length_scale, 0.0f, 100.0f);*/
 		}
 		ImGui::End();
 
